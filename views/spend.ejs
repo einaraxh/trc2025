@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Stats Upgrade</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #121212;
+      color: #e0e0e0;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .tokens-info {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    table {
+      margin: 0 auto;
+      text-align: left;
+      border-collapse: collapse;
+      width: 90%;
+      max-width: 650px;
+    }
+    th, td {
+      padding: 8px;
+      border-bottom: 1px solid #444;
+    }
+    th {
+      background: #1e1e1e;
+    }
+    button {
+      cursor: pointer;
+      background: #444;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+    }
+    button:hover {
+      background: #666;
+    }
+    #message {
+      margin: 10px auto;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Upgrade Your Stats</h1>
+
+  <!-- Current tokens display -->
+  <div class="tokens-info">
+    Tokens:
+    <span id="tokens"><%= dataBase["tokens"] %></span>
+    <form action="/ballgame" method="GET" style="display: inline;">
+      <button type="submit">Back to Game</button>
+    </form>
+  </div>
+
+  <!-- Table for each skill/upgradeable stat -->
+  <table>
+    <thead>
+      <tr>
+        <th>Skill</th>
+        <th>Level</th>
+        <th>Value</th>
+        <th>Cost</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- winCondition -->
+      <tr>
+        <td><strong><%= dataBase.winCondition.name %></strong></td>
+        <td>
+          <span id="winCondition-level"><%= dataBase["winCondition"].level %></span>
+          /
+          <%= dataBase["winCondition"].levels %>
+        </td>
+        <td>
+          <span id="winCondition-value"><%= dataBase["winCondition"].value %></span> ms
+        </td>
+        <td>
+          <span id="winCondition-cost"><%= dataBase["winCondition"].cost %></span>
+        </td>
+        <td>
+          <button id="winCondition-button" onclick="upgradeStat('winCondition')">
+            Upgrade
+          </button>
+        </td>
+      </tr>
+
+      <!-- n -->
+      <tr>
+        <td><strong><%= dataBase.n.name %></strong></td>
+        <td>
+          <span id="n-level"><%= dataBase["n"].level %></span>
+          /
+          <%= dataBase["n"].levels %>
+        </td>
+        <td>
+          <span id="n-value"><%= dataBase["n"].value %></span> targets
+        </td>
+        <td>
+          <span id="n-cost"><%= dataBase["n"].cost %></span>
+        </td>
+        <td>
+          <button id="n-button" onclick="upgradeStat('n')">
+            Upgrade
+          </button>
+        </td>
+      </tr>
+
+      <!-- radius -->
+      <tr>
+        <td><strong><%= dataBase.radius.name %></strong></td>
+        <td>
+          <span id="radius-level"><%= dataBase["radius"].level %></span>
+          /
+          <%= dataBase["radius"].levels %>
+        </td>
+        <td>
+          <span id="radius-value"><%= dataBase["radius"].value %></span> pixels
+        </td>
+        <td>
+          <span id="radius-cost"><%= dataBase["radius"].cost %></span>
+        </td>
+        <td>
+          <button id="radius-button" onclick="upgradeStat('radius')">
+            Upgrade
+          </button>
+        </td>
+      </tr>
+
+      <!-- decoyChance -->
+      <tr>
+        <td><strong><%= dataBase.decoyChance.name %></strong></td>
+        <td>
+          <span id="decoyChance-level"><%= dataBase["decoyChance"].level %></span>
+          /
+          <%= dataBase["decoyChance"].levels %>
+        </td>
+        <td>
+          <span id="decoyChance-value"><%= dataBase["decoyChance"].value %></span> %
+        </td>
+        <td>
+          <span id="decoyChance-cost"><%= dataBase["decoyChance"].cost %></span>
+        </td>
+        <td>
+          <button id="decoyChance-button" onclick="upgradeStat('decoyChance')">
+            Upgrade
+          </button>
+        </td>
+      </tr>
+
+      <!-- decoyAlpha -->
+      <tr>
+        <td><strong><%= dataBase.decoyAlpha.name %></strong></td>
+        <td>
+          <span id="decoyAlpha-level"><%= dataBase["decoyAlpha"].level %></span>
+          /
+          <%= dataBase["decoyAlpha"].levels %>
+        </td>
+        <td>
+          <span id="decoyAlpha-value"><%= dataBase["decoyAlpha"].value %></span> %
+        </td>
+        <td>
+          <span id="decoyAlpha-cost"><%= dataBase["decoyAlpha"].cost %></span>
+        </td>
+        <td>
+          <button id="decoyAlpha-button" onclick="upgradeStat('decoyAlpha')">
+            Upgrade
+          </button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Server feedback messages -->
+  <div id="message"></div>
+
+  <script>
+    const socket = io();
+
+    // Send upgrade request to server
+    function upgradeStat(stat) {
+      //console.log('upgradeStat()', stat);
+      socket.emit("upgradeStat", stat);
+    }
+
+    // Listen for updated stats from the server
+    socket.on("sync", (dataBase) => {
+      //console.log('socket on sync()', dataBase);
+      document.getElementById("tokens").textContent = dataBase["tokens"];
+
+      // List of stat keys to update
+      const statNames = ["winCondition", "n", "radius", "decoyChance", "decoyAlpha"];
+      for (const statName of statNames) {
+        // Update level
+        document.getElementById(`${statName}-level`).textContent = dataBase[statName].level;
+        // Update cost
+        try {
+          document.getElementById(`${statName}-cost`).textContent = dataBase[statName].cost;
+        } catch (error) {
+          //console.log("No cost element for", statName);
+        }
+        // Update value
+        document.getElementById(`${statName}-value`).textContent = dataBase[statName].value;
+
+        // If maxed, disable button
+        const btn = document.getElementById(`${statName}-button`);
+        if (dataBase[statName].level >= dataBase[statName].levels) {
+          btn.disabled = true;
+          btn.textContent = "Max Level";
+        } else {
+          // If not maxed, ensure it's enabled
+          btn.disabled = false;
+          btn.textContent = "Upgrade";
+        }
+      }
+    });
+  </script>
+</body>
+</html>

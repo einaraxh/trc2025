@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/socket.io/socket.io.js"></script>
+  <title>Path of Endurance</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #121212;
+      color: #e0e0e0;
+      padding: 20px;
+      margin: 0;
+      text-align: center;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: #1e1e1e;
+      padding: 20px;
+      border-radius: 8px;
+      position: relative; /* so we can absolutely position overlay inside */
+    }
+    .message-box {
+      background: #262626;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      min-height: 50px;
+    }
+    .results-box {
+      background: #262626;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      min-height: 50px;
+    }
+    .canvasWrapper {
+      position: relative;
+      display: inline-block; /* so width/height match canvas exactly */
+    }
+    canvas {
+      display: block;
+      margin: 20px auto;
+      border: 1px solid #444;
+    }
+    .buttons {
+      margin-top: 20px;
+    }
+    button {
+      background: #444;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      margin: 5px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button:hover {
+      background: #666;
+    }
+    .mode-picker {
+      margin-bottom: 20px;
+    }
+    .mode-option {
+      margin: 0 10px;
+    }
+    /* Overlay that sits on top of the canvas, but does not block clicks */
+    #startOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 800px;
+      height: 600px;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      z-index: 10;
+      pointer-events: none; /* let clicks pass through to canvas */
+    }
+    #overlayText {
+      pointer-events: none; /* text won't block pointer events either */
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Path of Endurance</h1>
+    <p>Tokens: <span id="tokens"></span></p>
+
+    <!-- Mode selection -->
+    <div class="mode-picker">
+      <label class="mode-option">
+        <input type="radio" name="mode" value="practice" checked> Practice
+      </label>
+      <label class="mode-option">
+        <input type="radio" name="mode" value="challenge"> Challenge
+      </label>
+      <button onclick="applyMode()">Set Mode</button>
+    </div>
+
+    <!-- Server messages go here -->
+    <div id="message" class="message-box"></div>
+
+    <!-- Final results for both modes go here -->
+    <div id="results" class="results-box"></div>
+
+    <div class="canvasWrapper">
+      <canvas id="canvas" width="800" height="600"></canvas>
+      <!-- Overlay that displays the mode text, but allows clicks to pass to canvas -->
+      <div id="startOverlay">
+        <span id="overlayText">Practice Mode, click to start</span>
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button onclick="reset()">Restart</button>
+      <form action="/" method="GET" style="display: inline;">
+        <button type="submit">Back to Main</button>
+      </form>
+      <form action="/spend" method="GET" style="display: inline;">
+        <button type="submit">Spend Tokens</button>
+      </form>
+      <form action="/blackjack" method="GET" style="display: inline;">
+        <button type="submit">Secret!</button>
+      </form>
+      
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const startOverlay = document.getElementById('startOverlay');
+    const overlayText = document.getElementById('overlayText');
+    let dataBase;
+    let targets = [];
+    let mode = "practice"; // default
+    let gameStarted = false;
+
+    // Helper: pick the mode from the radio buttons
+    function applyMode() {
+      const modes = document.getElementsByName('mode');
+      for (const m of modes) {
+        if (m.checked) {
+          mode = m.value;
+          break;
+        }
+      }
+      reset();
+    }
+
+    // Utility function to generate a random integer in [min, max]
+    function randomRange(min, max) {
+      return Math.floor(Math.random() * (max - min + 1) + min);
+    }
+
+    // Draw a target (plus optional decoy)
+    function drawTarget(x, y, radius) {
+      // distance helper
+      const dist = (p1, p2) =>
+        Math.sqrt(
+          Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2)
+        );
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = 'red';
+      ctx.fill();
+
+      // Potential decoy
+      let rand = Math.random();
+      if (rand < dataBase.decoyChance.value) {
+        const point = { x: null, y: null };
+        // Reroll if too close
+        while (true) {
+          point.x = randomRange(radius, 800 - radius);
+          point.y = randomRange(radius, 600 - radius);
+          if (dist(point, { x: x, y: y }) > radius * 2) {
+            break;
+          }
+        }
+        ctx.globalAlpha = dataBase.decoyAlpha.value;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = 'red';
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      targets.shift();
+    }
+
+    function reset() {
+      // Clear messages & scoreboard
+      document.getElementById("message").innerHTML = "";
+      document.getElementById("results").innerHTML = "";
+      gameStarted = false;
+
+      // Show overlay text for the chosen mode
+      if (mode === "practice") {
+        overlayText.textContent = "Practice Mode, click to start";
+      } else {
+        overlayText.textContent = "Challenge Mode, click to start";
+      }
+      startOverlay.style.display = 'flex';
+
+      // Show canvas
+      canvas.style.display = "block";
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.globalAlpha = 1;
+    }
+
+    socket.on('connect', () => {
+      //console.log('Connected to the server!');
+      reset();
+    });
+
+    // Show messages from server in #message
+    socket.on('message', (data) => {
+      //console.log('Message:', data);
+      document.getElementById("message").innerHTML = data;
+    });
+
+    // Start game from server perspective
+    socket.on('startGame', (keys) => {
+      //console.log("Server says: Starting Game!", keys);
+      targets = keys;
+      drawTarget(targets[0].x, targets[0].y, dataBase.radius.value);
+    });
+
+    // End game
+    socket.on('endGame', (result) => {
+      //console.log("Ending Game!", result);
+      // Hide the canvas in either mode
+      canvas.style.display = "none";
+
+      // Display scoreboard in #results
+      const resultsBox = document.getElementById("results");
+      let heading = (mode === 'challenge')
+        ? "<h3>Challenge Results</h3>"
+        : "<h3>Final Results</h3>";
+      let output = heading;
+
+      // Table for flush columns aligned left
+      output += `
+        <table style="margin: 0 auto; text-align: left; width: 70%;">
+          <thead>
+            <tr>
+              <th style="padding: 0 10px;">Target #</th>
+              <th style="padding: 0 10px;">ms</th>
+              <th style="padding: 0 10px;">Status</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+      result.clickStats.forEach((element, index) => {
+        const statusColor = element.hit === "hit" ? 'green' : 'red';
+        output += `
+            <tr>
+              <td style="padding: 2px 10px;">${index + 1}</td>
+              <td style="padding: 2px 10px;">${element.ms}</td>
+              <td style="padding: 2px 10px; color: ${statusColor};">${element.hit}</td>
+            </tr>`;
+      });
+
+      output += `
+          </tbody>
+        </table>
+        <br>
+        <p style="text-align:left; margin-left:15%;">
+          Required ms: ${dataBase.winCondition.value}
+        </p>
+        <p style="text-align:left; margin-left:15%;">
+          Average ms: ${result.averageMs}
+        </p>`;
+
+      resultsBox.innerHTML = output;
+    });
+
+    // Sync data
+    socket.on('sync', (data) => {
+      dataBase = data;
+      document.getElementById("tokens").innerHTML = dataBase.tokens;
+      //console.log("Synced data:", dataBase);
+    });
+
+    // Canvas click event
+    canvas.addEventListener('click', (event) => {
+      // If the game hasn't started, let's start it now.
+      if (!gameStarted) {
+        gameStarted = true;
+        startOverlay.style.display = 'none';
+        socket.emit('init', mode);
+        //return; // do not process as a target-click
+      }
+
+      const x = event.offsetX;
+      const y = event.offsetY;
+      const time = Date.now();
+      socket.emit('click', { x, y, time });
+
+      if (targets.length > 0) {
+        drawTarget(targets[0].x, targets[0].y, dataBase.radius.value);
+      }
+    });
+    // Expandable info box snippet
+    function toggleDetails() {
+        const info = document.getElementById('extraInfo');
+        if (info.style.display === 'none' || !info.style.display) {
+          info.style.display = 'block';
+        } else {
+          info.style.display = 'none';
+        }
+      }
+  </script>
+    <!-- Expandable Info Box Example -->
+    <div class="container" style="margin-top: 20px; text-align: left;">
+      <button onclick="toggleDetails()" style="background: #444; color: #fff; border-radius: 4px; border: none; padding: 8px 12px; cursor: pointer;">
+        Show More Info
+      </button>
+      <div id="extraInfo" style="display: none; margin-top: 10px; background: #262626; padding: 15px; border-radius: 4px;">
+        <h4>Game Instructions</h4>
+        <p>Hit all balls to win. Beware of decoy balls, they have a slightly different color. Failure will be punished. Use tokens to upgrade skills.</p>
+        <ul>
+          <li>Practice win condition: Hit all balls</li>
+          <li>Practice reward: 10 tokens + up  to 100% bonus if within double the time threshold</li>
+          <li>Practice punishment: 10% of all tokens lost</li>
+          <li>Challenge win condition: Hit all balls averaging less than the time threshold</li>
+          <li>Challenge reward: Win the game</li>
+          <li>Challenge punishment: -1 level to most expensive upgrade</li>
+        </ul>
+  
+        <p>Do not tilt</p>
+        <p>Be patient</p>
+      </div>
+    </div>
+</body>
+</html>

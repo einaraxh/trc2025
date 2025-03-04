@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <script src="/socket.io/socket.io.js"></script>
+  <title>Blackjack</title>
+  <style>
+    /* Dark theme styling */
+    body {
+      font-family: sans-serif;
+      background: #121212;
+      color: #e0e0e0;
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: #1e1e1e;
+      padding: 20px;
+      border-radius: 8px;
+      position: relative;
+    }
+    /* Header now includes tokens, bet display, and cards left */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .tokens, .card-counter, .bet-display {
+      margin: 5px;
+      font-size: 1.1em;
+    }
+    /* Betting panel container (visible only when no round is in progress) */
+    #betting-panel-container {
+      margin: 15px 0;
+      padding: 10px;
+      background: #2a2a2a;
+      border-radius: 4px;
+    }
+    /* Minimum bet info styling */
+    #min-bet-info {
+      text-align: center;
+      margin-bottom: 5px;
+      font-size: 0.9em;
+    }
+    /* Betting area as a flexbox of 2x9 units */
+    #betting-area {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: stretch;
+      margin-bottom: 5px;
+    }
+    /* Bet amount: left 2/9 units, spanning both rows */
+    #bet-amount-wrapper {
+      flex: 0 0 22%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border-right: 1px solid #555;
+      padding-right: 5px;
+    }
+    /* Buttons wrapper in the middle 5/9 units */
+    #buttons-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 0 5px;
+    }
+    /* Each row: positive buttons (top) and negative buttons (bottom) */
+    #positive-buttons, #negative-buttons {
+      display: flex;
+      justify-content: space-around;
+    }
+    /* Reset area: right 2/9 units, spanning both rows */
+    #reset-wrapper {
+      flex: 0 0 22%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border-left: 1px solid #555;
+      padding-left: 5px;
+    }
+    /* Uniform button styling */
+    .bet-btn {
+      font-size: 0.8em;
+      padding: 5px;
+      width: 100%;
+      box-sizing: border-box;
+      margin: 2px;
+      cursor: pointer;
+    }
+    /* Blackjack table image styling - expanded to show full content */
+    #table-placeholder {
+      width: 100%;
+      height: 300px;
+      display: block;
+      margin-bottom: 20px;
+      object-fit: contain;
+    }
+    .area {
+      margin-top: 20px;
+    }
+    .hand {
+      border: 1px solid #555;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      background: #262626;
+    }
+    .card {
+      display: inline-block;
+      width: 40px;
+      height: 60px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fff;
+      margin-right: 5px;
+      text-align: center;
+      line-height: 60px;
+      font-size: 18px;
+    }
+    .actions button {
+      margin-right: 10px;
+      padding: 5px 10px;
+      font-size: 1em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header with tokens, bet display, and cards left -->
+    <div class="header">
+      <div class="tokens">Tokens: <span id="tokenCount">200</span></div>
+      <div class="bet-display">Bet: <span id="topBetAmount">25</span></div>
+      <div class="card-counter">Cards Left: <span id="cardCounter">208</span></div>
+    </div>
+
+    <!-- Betting panel container (visible only when no round is in progress) -->
+    <div id="betting-panel-container">
+      <div id="betting-panel-content">
+        <p id="min-bet-info"><em>Minimum bet is 25 tokens.</em></p>
+        <!-- Betting controls area -->
+        <div id="betting-area">
+          <div id="bet-amount-wrapper">
+            <div><strong>Bet Amount:</strong></div>
+            <div id="bet-amount">25</div>
+          </div>
+          <div id="buttons-wrapper">
+            <div id="positive-buttons">
+              <button class="bet-btn" onclick="adjustBet(5)">+5</button>
+              <button class="bet-btn" onclick="adjustBet(10)">+10</button>
+              <button class="bet-btn" onclick="adjustBet(20)">+20</button>
+              <button class="bet-btn" onclick="adjustBet(50)">+50</button>
+              <button class="bet-btn" onclick="adjustBet(100)">+100</button>
+            </div>
+            <div id="negative-buttons">
+              <button class="bet-btn" onclick="adjustBet(-5)">-5</button>
+              <button class="bet-btn" onclick="adjustBet(-10)">-10</button>
+              <button class="bet-btn" onclick="adjustBet(-20)">-20</button>
+              <button class="bet-btn" onclick="adjustBet(-50)">-50</button>
+              <button class="bet-btn" onclick="adjustBet(-100)">-100</button>
+            </div>
+          </div>
+          <div id="reset-wrapper">
+            <button class="bet-btn" onclick="resetBet()">Reset Bet</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Blackjack table image -->
+    <img id="table-placeholder" src="assets/table.jpg" alt="Blackjack Table">
+
+    <div class="area" id="dealer-area">
+      <h2>Dealer's Hand</h2>
+      <div id="dealer-hand" class="hand"></div>
+    </div>
+    <div class="area" id="player-area">
+      <h2>Your Hand(s)</h2>
+      <div id="player-hands"></div>
+    </div>
+    <div class="area actions">
+      <button id="hit-btn" disabled>Hit</button>
+      <button id="stand-btn" disabled>Stand</button>
+      <button id="double-btn" disabled>Double</button>
+      <button id="split-btn" disabled>Split</button>
+      <button id="new-round-btn">New Round</button>
+      <form action="/ballgame" method="GET" style="display: inline;">
+        <button type="submit">Back to Game</button>
+      </form>
+    </div>
+    <div class="area">
+      <div id="message"></div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io()
+    
+    let dataBase
+    socket.on('sync', (data) => {
+      dataBase = data
+      //console.log('socket on sync()', dataBase)
+      tokens = dataBase.tokens
+      document.getElementById("tokenCount").innerHTML = dataBase.tokens
+      //console.log("Synced data:", dataBase)
+    })
+
+    /********************
+     * CONFIGURATION
+     ********************/
+    const CONFIG = {
+      startingTokens: 200,   // Player starts with 200 tokens
+      minBet: 25,            // Minimum bet is 25 tokens
+      maxSplits: 4,          // Maximum number of hands allowed
+      numberOfDecks: 4,      // Using 4 decks (208 cards total)
+      dealerStandValue: 17,  // Dealer stands on 17 or higher
+    };
+
+    /********************
+     * GAME STATE VARIABLES
+     ********************/
+    let tokens = CONFIG.startingTokens;
+    let deck = [];
+    let currentBet = CONFIG.minBet;
+    let playerHands = []; // Array of hand objects: { cards: [], bet: number }
+    let dealerHand = { cards: [] };
+    let currentHandIndex = 0; // Tracks active player hand
+    let roundInProgress = false;
+
+    /********************
+     * UTILITY FUNCTIONS
+     ********************/
+    function createDeck() {
+      const suits = ['♠', '♥', '♦', '♣'];
+      const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+      let newDeck = [];
+      for (let d = 0; d < CONFIG.numberOfDecks; d++) {
+        for (let suit of suits) {
+          for (let rank of ranks) {
+            let value = parseInt(rank);
+            if (['J','Q','K'].includes(rank)) value = 10;
+            if (rank === 'A') value = 11;
+            newDeck.push({ suit, rank, value });
+          }
+        }
+      }
+      return shuffle(newDeck);
+    }
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+    function updateDisplay() {
+      document.getElementById('tokenCount').textContent = tokens;
+      document.getElementById('cardCounter').textContent = deck.length;
+      document.getElementById('bet-amount').textContent = currentBet;
+      document.getElementById('topBetAmount').textContent = currentBet;
+    }
+    function renderCards(container, cards) {
+      container.innerHTML = '';
+      cards.forEach(card => {
+        let cardDiv = document.createElement('div');
+        cardDiv.className = 'card';
+        cardDiv.textContent = card.rank + card.suit;
+        cardDiv.style.color = (card.suit === '♥' || card.suit === '♦') ? 'red' : 'black';
+        container.appendChild(cardDiv);
+      });
+    }
+    function renderHands() {
+      let container = document.getElementById('player-hands');
+      container.innerHTML = '';
+      playerHands.forEach((hand, index) => {
+        let handDiv = document.createElement('div');
+        handDiv.className = 'hand';
+        handDiv.dataset.index = index;
+        handDiv.innerHTML = '<strong>Hand ' + (index + 1) + '</strong> (Bet: ' + hand.bet + ')<br>';
+        let cardsDiv = document.createElement('div');
+        cardsDiv.id = 'player-hand-' + index;
+        renderCards(cardsDiv, hand.cards);
+        handDiv.appendChild(cardsDiv);
+        handDiv.innerHTML += '<br>Value: ' + calculateHandValue(hand.cards);
+        // Highlight the active hand with a blue border
+        if (index === currentHandIndex) {
+          handDiv.style.border = '2px solid blue';
+        }
+        container.appendChild(handDiv);
+      });
+    }
+    function calculateHandValue(cards) {
+      let value = 0, aces = 0;
+      cards.forEach(card => {
+        value += card.value;
+        if (card.rank === 'A') aces++;
+      });
+      while (value > 21 && aces > 0) {
+        value -= 10;
+        aces--;
+      }
+      return value;
+    }
+    function dealCard(target) {
+      if (deck.length === 0) {
+        deck = createDeck();
+        updateDisplay();
+        addMessage('Deck reshuffled.');
+      }
+      let card = deck.pop();
+      target.push(card);
+      updateDisplay();
+    }
+    function addMessage(msg) {
+      let messageDiv = document.getElementById('message');
+      messageDiv.innerHTML += msg + "<br>";
+    }
+    function clearMessages() {
+      document.getElementById('message').innerHTML = '';
+    }
+    function disableBettingControls() {
+      document.querySelectorAll('.bet-btn').forEach(btn => btn.disabled = true);
+    }
+    function enableBettingControls() {
+      document.querySelectorAll('.bet-btn').forEach(btn => btn.disabled = false);
+    }
+    function resetRound() {
+      playerHands = [];
+      dealerHand = { cards: [] };
+      currentHandIndex = 0;
+      roundInProgress = false;
+      document.getElementById('hit-btn').disabled = true;
+      document.getElementById('stand-btn').disabled = true;
+      document.getElementById('double-btn').disabled = true;
+      document.getElementById('split-btn').disabled = true;
+      enableBettingControls();
+      // Show the betting panel container when no round is in progress
+      document.getElementById('betting-panel-container').style.display = 'block';
+      updateDisplay();
+    }
+    /********************
+     * BETTING FUNCTIONS
+     ********************/
+    function adjustBet(amount) {
+      currentBet += amount;
+      if (currentBet < CONFIG.minBet) currentBet = CONFIG.minBet;
+      // Automatically cap the bet at the current token count
+      if (currentBet > tokens) currentBet = tokens;
+      updateDisplay();
+    }
+    function resetBet() {
+      currentBet = CONFIG.minBet;
+      updateDisplay();
+    }
+    /********************
+     * GAME LOGIC FUNCTIONS
+     ********************/
+    function startRound() {
+      ready = false
+      clearMessages();
+      if (currentBet < CONFIG.minBet) {
+        addMessage('Bet must be at least ' + CONFIG.minBet + '.');
+        return;
+      }
+      if (tokens < currentBet) {
+        addMessage('Not enough tokens to play that bet.');
+        return;
+      }
+      disableBettingControls();
+      // Hide the betting panel container during a round
+      document.getElementById('betting-panel-container').style.display = 'none';
+      roundInProgress = true;
+      let hand = { cards: [], bet: currentBet };
+      playerHands.push(hand);
+      dealCard(hand.cards);
+      dealCard(hand.cards);
+      dealCard(dealerHand.cards);
+      dealCard(dealerHand.cards);
+      updateDisplay();
+      renderHands();
+      renderCards(document.getElementById('dealer-hand'), dealerHand.cards);
+      document.getElementById('hit-btn').disabled = false;
+      document.getElementById('stand-btn').disabled = false;
+      document.getElementById('double-btn').disabled = false;
+      // Allow splitting if the two cards are either the same rank or both are face cards
+      if (hand.cards.length === 2 &&
+          ((hand.cards[0].rank === hand.cards[1].rank) ||
+           (['J','Q','K'].includes(hand.cards[0].rank) && ['J','Q','K'].includes(hand.cards[1].rank))) &&
+          playerHands.length < CONFIG.maxSplits) {
+        document.getElementById('split-btn').disabled = false;
+      } else {
+        document.getElementById('split-btn').disabled = true;
+      }
+      addMessage('Round started. Your move.');
+    }
+    function playerHit() {
+      let hand = playerHands[currentHandIndex];
+      dealCard(hand.cards);
+      renderHands();
+      document.getElementById('split-btn').disabled = true;
+      if (calculateHandValue(hand.cards) > 21) {
+        addMessage('Hand ' + (currentHandIndex + 1) + ' busts!');
+        moveToNextHand();
+      }
+    }
+    function playerStand() {
+      addMessage('Hand ' + (currentHandIndex + 1) + ' stands.');
+      moveToNextHand();
+    }
+    function playerDouble() {
+      let hand = playerHands[currentHandIndex];
+      socket.emit('double', hand.bet)
+      /* if (tokens < hand.bet) {
+        addMessage('Not enough tokens to double.');
+        return;
+      } */
+      //tokens -= hand.bet;
+    }
+    socket.on('double', (data) => {
+      //console.log('double', data)
+      if (data == 'ok' && roundInProgress) {
+        //log('double ok')
+        let hand = playerHands[currentHandIndex];
+        hand.bet *= 2;
+        dealCard(hand.cards);
+        renderHands();
+        addMessage('Hand ' + (currentHandIndex + 1) + ' doubles.');
+        moveToNextHand();
+      } else if ('poor'){
+        addMessage('Not enough tokens to double.')
+      }
+    })
+
+    function playerSplit() {
+      let hand = playerHands[currentHandIndex];
+      if (tokens < hand.bet) {
+        addMessage('Not enough tokens to split.');
+        return;
+      }
+      // Allow splitting if cards have the same rank or if both are face cards
+      if (hand.cards.length === 2 &&
+          ((hand.cards[0].rank === hand.cards[1].rank) ||
+           (['J','Q','K'].includes(hand.cards[0].rank) && ['J','Q','K'].includes(hand.cards[1].rank))) &&
+          playerHands.length < CONFIG.maxSplits) {
+        tokens -= hand.bet;
+        let card1 = hand.cards[0];
+        let card2 = hand.cards[1];
+        // Replace current hand with one card and add new hand with the other card
+        playerHands[currentHandIndex] = { cards: [card1], bet: hand.bet };
+        playerHands.push({ cards: [card2], bet: hand.bet });
+        dealCard(playerHands[currentHandIndex].cards);
+        dealCard(playerHands[playerHands.length - 1].cards);
+        renderHands();
+        addMessage('Hand split. Now playing hand ' + (currentHandIndex + 1) + '.');
+        document.getElementById('split-btn').disabled = true;
+      }
+    }
+    function moveToNextHand() {
+      if (currentHandIndex < playerHands.length - 1) {
+        currentHandIndex++;
+        renderHands();  // Update the active hand border
+        addMessage('Now playing hand ' + (currentHandIndex + 1) + '.');
+        document.getElementById('hit-btn').disabled = false;
+        document.getElementById('stand-btn').disabled = false;
+        document.getElementById('double-btn').disabled = false;
+        let currentHand = playerHands[currentHandIndex];
+        if (currentHand.cards.length === 2 &&
+            ((currentHand.cards[0].rank === currentHand.cards[1].rank) ||
+             (['J','Q','K'].includes(currentHand.cards[0].rank) && ['J','Q','K'].includes(currentHand.cards[1].rank))) &&
+            playerHands.length < CONFIG.maxSplits) {
+          document.getElementById('split-btn').disabled = false;
+        } else {
+          document.getElementById('split-btn').disabled = true;
+        }
+      } else {
+        finishRound();
+      }
+    }
+    function finishRound() {
+      //console.log("finishRound()")
+      while (calculateHandValue(dealerHand.cards) < CONFIG.dealerStandValue) {
+        dealCard(dealerHand.cards);
+      }
+      renderCards(document.getElementById('dealer-hand'), dealerHand.cards);
+      let dealerValue = calculateHandValue(dealerHand.cards);
+      playerHands.forEach((hand, index) => {
+        let handValue = calculateHandValue(hand.cards);
+        if (handValue > 21) {
+          addMessage('Hand ' + (index + 1) + ' busts. You lose ' + hand.bet + ' tokens.');
+        } else if (dealerValue > 21 || handValue > dealerValue) {
+          tokens += hand.bet * 2;
+          addMessage('Hand ' + (index + 1) + ' wins! You win ' + hand.bet + ' tokens.');
+        } else if (handValue === dealerValue) {
+          tokens += hand.bet;
+          addMessage('Hand ' + (index + 1) + ' pushes.');
+        } else {
+          addMessage('Hand ' + (index + 1) + ' loses. You lose ' + hand.bet + ' tokens.');
+        }
+      });
+      updateDisplay();
+      document.getElementById('hit-btn').disabled = true;
+      document.getElementById('stand-btn').disabled = true;
+      document.getElementById('double-btn').disabled = true;
+      document.getElementById('split-btn').disabled = true;
+      roundInProgress = false;
+      enableBettingControls();
+      // Show the betting panel container when no round is in progress
+      document.getElementById('betting-panel-container').style.display = 'block';
+    }
+    /********************
+     * EVENT LISTENERS
+     ********************/
+
+    let ready = false
+
+    socket.on('startBlackjack', (data) => {
+      //console.log('startBlackjack', data)
+      if (data == 'ok' && ready) {
+        resetRound()
+        startRound()
+      } else if (data == 'poor') {
+        addMessage('Not enough tokens to play that bet.')
+      }
+    })
+
+    document.getElementById('new-round-btn').addEventListener('click', function() {
+      if (roundInProgress) {
+        addMessage('Round in progress.');
+        return;
+      }
+      //console.log('bet', currentBet)
+      socket.emit('bet', currentBet)
+      ready = true
+    });
+    document.getElementById('hit-btn').addEventListener('click', function() {
+      if (roundInProgress) playerHit();
+    });
+    document.getElementById('stand-btn').addEventListener('click', function() {
+      if (roundInProgress) playerStand();
+    });
+    document.getElementById('double-btn').addEventListener('click', function() {
+      if (roundInProgress) playerDouble();
+    });
+    document.getElementById('split-btn').addEventListener('click', function() {
+      if (roundInProgress) playerSplit();
+    });
+    /********************
+     * INITIALIZATION
+     ********************/
+    window.onload = function() {
+      deck = createDeck();
+      updateDisplay();
+      addMessage('Welcome to Blackjack! Adjust your bet using the panel above and click "New Round" to play.');
+    };
+  </script>
+</body>
+</html>

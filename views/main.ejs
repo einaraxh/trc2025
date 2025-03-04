@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="/socket.io/socket.io.js"></script>
+  <title>Interactive Music & Input Page</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #121212;
+      color: #e0e0e0;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    .container {
+      max-width: 600px;
+      margin: 80px auto;
+      padding: 20px;
+    }
+    /* Image placeholder styling */
+    .image-placeholder {
+      width: 100%;
+      max-width: 600px;
+      height: auto;
+      margin-bottom: 20px;
+    }
+    input[type="text"] {
+      padding: 10px;
+      font-size: 16px;
+      width: 70%;
+      border: none;
+      border-radius: 4px;
+      margin-right: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 4px;
+      background: #444;
+      color: #fff;
+      cursor: pointer;
+    }
+    /* Full-screen dark overlay */
+    #darkOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      z-index: 9999;
+      opacity: 1;
+      transition: opacity 1s ease;
+    }
+    #darkOverlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Dark overlay shown initially if user interaction is needed to start the music -->
+  <div id="darkOverlay"></div>
+  
+  <div class="container">
+    <!-- Image placeholder -->
+    <img class="image-placeholder" src="assets/royal_logo.png" alt="Image Placeholder">
+    
+    <!-- Text input and button -->
+    <div>
+      <input type="text" id="userInput" placeholder="Enter text here">
+      <button onclick="handleEnter()">Enter</button>
+    </div>
+  </div>
+  
+  <!-- Audio element with music on loop -->
+  <audio id="bgMusic" loop>
+    <source src="assets/Metalican.mp3" type="audio/mpeg">
+    Your browser does not support the audio element.
+  </audio>
+  
+  <script>
+    const socket = io();
+
+    socket.on('enter', (value) => {
+      window.location.href = value;
+    })
+
+    const overlay = document.getElementById('darkOverlay');
+    const bgMusic = document.getElementById('bgMusic');
+
+    // Function to start the music and fade out the overlay
+    function startMusic() {
+      bgMusic.play().catch(e => console.log("Playback error:", e));
+      overlay.classList.add('hidden');
+      // Optionally remove the overlay from the DOM after the fade-out transition
+      setTimeout(() => overlay.style.display = 'none', 1000);
+    }
+    
+    // Wait for a user click to start the music if needed
+    document.addEventListener('click', function initiateMusic() {
+      if (bgMusic.paused) {
+        startMusic();
+      }
+    }, { once: true });
+    
+    // Function called by the Enter button
+    function handleEnter() {
+      const inputVal = document.getElementById('userInput').value;
+      //console.log("User input:", inputVal);
+      // Your custom logic here
+      socket.emit('enter', inputVal);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="/socket.io/socket.io.js"></script>
+  <title>Countdown Page</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #121212;
+      color: #e0e0e0;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    .container {
+      max-width: 600px;
+      margin: 80px auto;
+      padding: 20px;
+    }
+    .image-placeholder {
+      width: 100%;
+      max-width: 600px;
+      height: auto;
+      margin-bottom: 20px;
+    }
+    #countdown {
+      font-size: 24px;
+      margin-top: 20px;
+    }
+    /* Full-screen dark overlay */
+    #darkOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      z-index: 9999;
+      opacity: 1;
+      transition: opacity 1s ease;
+    }
+    #darkOverlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Dark overlay shown initially if user interaction is needed to start the music -->
+  <div id="darkOverlay"></div>
+  
+  <div class="container">
+    <!-- Image placeholder -->
+    <img class="image-placeholder" src="assets/royal_logo.png" alt="Image Placeholder">
+    
+    <!-- Countdown Timer -->
+    <div id="countdown"></div>
+  </div>
+  
+  <!-- Audio element with music on loop -->
+  <audio id="bgMusic" loop>
+    <source src="assets/Metalican.mp3" type="audio/mpeg">
+    Your browser does not support the audio element.
+  </audio>
+  
+  <script>
+    // Set your target date here (YYYY-MM-DDTHH:MM:SS format)
+    const targetDate = new Date("2025-03-15T19:59:59");
+    const countdownElement = document.getElementById('countdown');
+
+    function updateCountdown() {
+      const now = new Date();
+      const diff = targetDate - now;
+      
+      if (diff <= 0) {
+        countdownElement.innerHTML = "Countdown complete!";
+        clearInterval(intervalId);
+        return;
+      }
+      
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      countdownElement.innerHTML = days + "d " + hours + "h " + minutes + "m " + seconds + "s";
+    }
+    
+    updateCountdown();
+    const intervalId = setInterval(updateCountdown, 1000);
+
+    const overlay = document.getElementById('darkOverlay');
+    const bgMusic = document.getElementById('bgMusic');
+
+    // Function to start the music and fade out the overlay
+    function startMusic() {
+      bgMusic.play().catch(e => console.log("Playback error:", e));
+      overlay.classList.add('hidden');
+      setTimeout(() => overlay.style.display = 'none', 1000);
+    }
+    
+    // Wait for a user click to start the music if needed
+    document.addEventListener('click', function initiateMusic() {
+      if (bgMusic.paused) {
+         startMusic();
+      }
+    }, { once: true });
+  </script>
+</body>
+</html>
