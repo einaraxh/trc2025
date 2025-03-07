@@ -185,7 +185,7 @@
             break;
           }
         }
-        ctx.globalAlpha = dataBase.decoyAlpha.value;
+        ctx.globalAlpha = dataBase.decoyAlpha.value/100;
         ctx.beginPath();
         ctx.arc(point.x, point.y, radius, 0, 2 * Math.PI);
         ctx.fillStyle = 'red';
