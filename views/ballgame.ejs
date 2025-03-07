@@ -175,7 +175,7 @@
 
       // Potential decoy
       let rand = Math.random();
-      if (rand < dataBase.decoyChance.value) {
+      if (rand < dataBase.decoyChance.value/100) {
         const point = { x: null, y: null };
         // Reroll if too close
         while (true) {
