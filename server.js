@@ -147,7 +147,7 @@ app.get('/ballgame', (req, res) => {
 })
 
 app.get('/blackjack', (req, res) => {
-  res.render('blackjackNEW')
+  res.render('blackjack')
 })
 
 app.get('/mirkwood', (req, res) => {
