@@ -147,7 +147,7 @@ app.get('/ballgame', (req, res) => {
 })
 
 app.get('/blackjack', (req, res) => {
-  res.render('blackjack')
+  res.render('blackjackNEW')
 })
 
 app.get('/mirkwood', (req, res) => {
@@ -446,8 +446,8 @@ io.on('connection', async (socket) => {
     await saveDataBase()
   })
 
-  socket.on("bet", (bet) => {
-    console.log("bet", bet)
+  socket.on("ghk5w", (bet) => {
+    console.log("bj_bet", bet)
     if (bet > dataBase.tokens) {
       socket.emit("startBlackjack", 'poor')
     } else {
@@ -456,14 +456,24 @@ io.on('connection', async (socket) => {
     }
     saveDataBase()
   })
-  socket.on("double", (bet) => {
-    console.log("double", bet)
+  socket.on("b3dl3", (bet) => {
+    console.log("bj_double", bet)
     if (bet > dataBase.tokens) {
-      socket.emit("double", 'poor')
+      socket.emit("b3dl3", 'poor')
     } else {
       dataBase.tokens -= bet
-      socket.emit("double", 'ok')
+      socket.emit("b3dl3", 'ok')
     }
+    saveDataBase()
+  })
+  socket.on("6m67k", (hand) => {
+    console.log("nj_push", hand)
+    dataBase.tokens += hand
+    saveDataBase()
+  })
+  socket.on("0x56j", (hand) => {
+    console.log("bj_win", hand)
+    dataBase.tokens += 2*hand
     saveDataBase()
   })
 
