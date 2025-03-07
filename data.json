@@ -1,5 +1,5 @@
 {
-  "tokens": 25,
+  "tokens": 800,
   "winCondition": {
     "name": "Win threshold",
     "levels": 25,
