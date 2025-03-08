@@ -280,8 +280,9 @@ io.on('connection', async (socket) => {
           //const bonus = (baseReward*2-baseReward)/(dataBase.winCondition*2-dataBase.winCondition) * (result.averageMs-dataBase.winCondition)
           //const performance = (result.averageMs - dataBase.winCondition.value) > 0 ? (result.averageMs - dataBase.winCondition.value) : 0
           //const bonus = baseReward - baseReward*((performance) / dataBase.winCondition.value)
-          const performance = 1-(result.averageMs-dataBase.winCondition.value)/dataBase.winCondition.value
-          let bonus = Math.round(baseReward * performance)
+          //const performance = 1-(result.averageMs-dataBase.winCondition.value)/dataBase.winCondition.value
+          const performance = 1 / Math.pow(2, factor - 1);
+          let bonus = Math.round(baseReward * performance*2)
           if (bonus < 0) bonus = 0
           
           console.log("reward:", bonus, performance)
