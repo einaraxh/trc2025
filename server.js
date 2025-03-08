@@ -183,8 +183,11 @@ io.on('connection', async (socket) => {
       case '246395520':
         socket.emit('enter', '/ballgame')
         break
-      case 'mirkwood':
-        socket.emit('enter', '/test')
+      case 'letmein':
+        socket.emit('enter', '/mirkwood')
+        break
+      case 'binary':
+        socket.emit('enter', '/assets/binary.png')
         break
     }
   })
