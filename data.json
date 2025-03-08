@@ -12,7 +12,7 @@
       2000
     ],
     "value": 100,
-    "level": 5,
+    "level": 1,
     "cost": 10
   },
   "n": {
@@ -27,52 +27,52 @@
       1000
     ],
     "value": 20,
-    "level": 13,
+    "level": 1,
     "cost": 20
   },
   "radius": {
     "name": "Target radius",
-    "levels": 25,
+    "levels": 50,
     "span": [
       5,
-      20
+      40
     ],
     "costSpan": [
       10,
-      1000
+      2000
     ],
     "value": 5,
-    "level": 13,
+    "level": 1,
     "cost": 10
   },
   "decoyChance": {
     "name": "Decoy chance",
-    "levels": 25,
+    "levels": 50,
     "span": [
       100,
       0
     ],
     "costSpan": [
       10,
-      1000
+      2000
     ],
     "value": 100,
-    "level": 12,
+    "level": 1,
     "cost": 10
   },
   "decoyAlpha": {
     "name": "Decoy visibility",
-    "levels": 25,
+    "levels": 50,
     "span": [
       95,
       20
     ],
     "costSpan": [
       10,
-      1000
+      2000
     ],
     "value": 95,
-    "level": 11,
+    "level": 1,
     "cost": 10
   }
 }
