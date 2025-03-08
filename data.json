@@ -1,15 +1,15 @@
 {
-  "tokens": 41,
+  "tokens": 13000,
   "winCondition": {
     "name": "Win threshold",
-    "levels": 25,
+    "levels": 50,
     "span": [
       100,
-      500
+      1000
     ],
     "costSpan": [
       10,
-      1000
+      2000
     ],
     "value": 100,
     "level": 5,
